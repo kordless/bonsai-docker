@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  bonsai-endpoint:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bonsai-image-4b-endpoint
+    ports:
+      - "8000:8000"
+      - "3000:3000"
+    volumes:
+      # Host folder mounts to preserve assets and caches across rebuilds / restarts:
+      # 1. Models cache (avoid redownloading model files)
+      - ./models:/app/models
+      # 2. Outputs, Triton JIT compile cache, and Gemlite autotuning cache
+      - ./outputs:/app/outputs
+    environment:
+      # Variant to run: 'ternary' (default, high-quality, ~1.21GB) or 'binary' (compact, ~0.93GB)
+      - BONSAI_VARIANT=ternary
+      # Shapes to prewarm on server boot (separating Triton compilation and autotuning costs upfront)
+      - BONSAI_WARMUP_SHAPES=512x512
+      # Enable high-speed parallel range-request downloading for HF snapshots
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
